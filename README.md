@@ -1,6 +1,6 @@
 # Git S3 Cache Buildkite Plugin
 
-Annotates the build with a file count.
+Adds a `pre-checkout` hook that downloads a git mirror from S3 and uses it as part of the `checkout` process.
 
 ## Example
 
