@@ -1,0 +1,6 @@
+services:
+  lint:
+    image: buildkite/plugin-linter
+    command: ['--id', 'automattic/git-s3-cache']
+    volumes:
+      - ".:/plugin:ro"

@@ -1,0 +1,26 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_GIT_REPO"
+BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_GIT_BUCKET"
+
+echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
+
+# Fetch the most recent S3 backup key
+SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git/"))' | sort -r | head -n1)
+
+# Exit early if there's no available snapshot
+if [ -z "$SNAPSHOT_KEY" ]; then
+	echo "No snapshots found in $BUCKET"
+	exit 0
+fi
+
+DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
+
+# Then download it
+aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" $DESTINATION
+
+echo "Restore Complete"
+
+# Overwrite the clone flags to use the reference
+export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"

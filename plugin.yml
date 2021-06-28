@@ -1,0 +1,11 @@
+name: Git S3 Cache
+description: Reads your git repo from an S3 cache
+author: https://github.com/automattic
+requirements: []
+configuration:
+  properties:
+    repo:
+      type: string
+    bucket:
+      type: string
+  additionalProperties: false
