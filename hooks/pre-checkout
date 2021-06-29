@@ -15,12 +15,16 @@ if [ -z "$SNAPSHOT_KEY" ]; then
 	exit 0
 fi
 
+echo "Downloading snapshot: $SNAPSHOT_KEY"
+
 DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
 
 # Then download it
-aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" $DESTINATION
+aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
 
-echo "Restore Complete"
+SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
+
+echo "Restore Complete – Downloaded $SIZE"
 
 # Overwrite the clone flags to use the reference
 export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"
