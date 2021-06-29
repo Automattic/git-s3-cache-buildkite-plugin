@@ -26,5 +26,10 @@ SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
 
 echo "Restore Complete – Downloaded $SIZE"
 
+cd $DESTINATION
+pwd
+ls
+cd -
+
 # Overwrite the clone flags to use the reference
 export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"
