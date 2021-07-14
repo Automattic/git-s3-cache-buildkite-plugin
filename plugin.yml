@@ -1,11 +1,21 @@
 name: Git S3 Cache
-description: Reads your git repo from an S3 cache
+description: Reads and clones your git repo from an S3 cache
 author: https://github.com/automattic
 requirements: []
 configuration:
   properties:
-    repo:
+    repos:
       type: string
     bucket:
       type: string
+    path:
+      type: string
+    github_url:
+      type: string
+    git_clone_flags:
+      type: boolean
+    auto_clone:
+      type: boolean
+    auto_clean:
+      type: boolean
   additionalProperties: false
