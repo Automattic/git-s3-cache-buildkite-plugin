@@ -1,0 +1,15 @@
+#!/bin/bash
+
+set -eo pipefail
+
+# Cleanup
+
+AUTO_CLEAN="${BUILDKITE_PLUGIN_GIT_S3_CACHE_AUTO_CLEAN:-"false"}"
+
+if [ "$AUTO_CLEAN" = "true" ]; then
+
+  echo "--- :broom: Auto-Clean is ON! Deleting references repos as requested. "
+  rm -rf /tmp/"$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_PIPELINE_ID"/
+else
+  echo "   ↳ Auto-Cleanup is disabled."
+fi

@@ -1,35 +1,91 @@
-#!/bin/bash
-set -euo pipefail
+#!/bin/bash​
+# do not set `u`, it will break due to line
+set -eo pipefail
 
-REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
+# create array of repos
+IFS=' '
+read -r -a REPOS <<< "$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPOS"
+
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
+REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_PATH"
+GIT_CLONE_FLAGS="${BUILDKITE_PLUGIN_GIT_S3_CACHE_GIT_CLONE_FLAGS:-"false"}"
 
-echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
+echo "--- :database: Restoring cache for job: $BUILDKITE_PIPELINE_SLUG"
 
-# Fetch the most recent S3 backup key
-SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git/"))' | sort -r | head -n1)
+for repo in "${REPOS[@]}"; do
+  echo "--- :sweating: Working on $repo..."
 
-# Exit early if there's no available snapshot
-if [ -z "$SNAPSHOT_KEY" ]; then
-	echo "No snapshots found in $BUCKET"
-	exit 0
+  # fix up if repos have prefix paths
+  if [[ $repo =~ "/" ]]; then
+    REPO_NAME=$(echo "$repo" | cut -d "/" -f 2)
+    REPO_PREFIX=$(echo "$repo" | cut -d "/" -f 1)
+    # Fetch the most recent S3 backup date and assemble paths
+    LATEST_SNAPSHOT_DATE=$(aws --output json s3api list-objects-v2 --bucket "$BUCKET" --prefix "$REPO_PATH" --query 'Contents[].Key' | jq -r '.[]' | grep "$REPO_NAME" | sort -r | head -1 | cut -d "/" -f 3)
+    LATEST_REPO_PATH="${BUCKET}/${REPO_PATH}/${REPO_PREFIX}/${LATEST_SNAPSHOT_DATE}/${REPO_NAME}.git.tar"
+  else
+    REPO_NAME=$repo
+    # Fetch the most recent S3 backup date and assemble paths
+    LATEST_SNAPSHOT_DATE=$(aws --output json s3api list-objects-v2 --bucket "$BUCKET" --prefix "$REPO_PATH" --query 'Contents[].Key' | jq -r '.[]' | grep "$REPO_NAME" | sort -r | head -1 | cut -d "/" -f 3)
+    LATEST_REPO_PATH="${BUCKET}/${REPO_PATH}/${LATEST_SNAPSHOT_DATE}/${REPO_NAME}.git.tar"
+  fi
+
+  # Check if there is actually contents in the assembled path and not just an empty dir.
+  REPO_CONTENTS=$(aws s3 ls s3://"$LATEST_REPO_PATH")
+  if [ -z "$REPO_CONTENTS" ]; then
+    echo "--- :bk-status-failed: Fatal Error! No data found in ${LATEST_REPO_PATH}! Perhaps the repo name is wrong?"
+    exit 1
+  else
+    echo "   ↳ ${REPO_NAME} Snapshot found! It is dated ${LATEST_SNAPSHOT_DATE}."
+  fi
+
+  # Destination is where we will copy to on the agent
+  DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG-$BUILDKITE_PIPELINE_ID"
+
+  echo "--- ↳ :file-cabinet: Downloading snapshot of [ $REPO_NAME ] from [ $LATEST_REPO_PATH ] to local path: [ $DESTINATION ]"
+
+  # Clear and then download!
+  rm -rf "$DESTINATION"
+  S3_SYNC_RESULT=$(aws s3 cp --acl private --sse aws:kms s3://"$LATEST_REPO_PATH" "$DESTINATION"/)
+  DOWNLOAD_STATUS=$?
+
+  # S3 directory commands can fail silently and still exit 0,
+  # so we ensure that there was actually something that happened
+  if [ $DOWNLOAD_STATUS = 0 ] && [ -n "$S3_SYNC_RESULT" ]; then
+    echo "   ↳ 🎉 Download complete!"
+  else
+    echo "--- :bk-status-failed: Fatal Error during download!"
+    echo "$S3_SYNC_RESULT"
+    exit 1
+  fi
+
+  # un-tar the file
+  echo "--- ↳ :scissors: Extracting ${REPO_NAME}"
+  tar -xf "$DESTINATION"/"$REPO_NAME".git.tar -C "$DESTINATION"/
+  UNTAR_RESULT=$?
+  if [ "$UNTAR_RESULT" != 0 ]; then
+    echo "--- :bk-status-failed: Failed to untar archive. Hopefully you are giving me some tar?"
+    echo "---   RESULT:  $UNTAR_RESULT"
+    exit 1
+  fi
+
+  # create ENV variable for pipeline use
+  REPO_NAME_ENV=$(echo "$REPO_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')
+  export "${REPO_NAME_ENV}_REFERENCE_DESTINATION"="$DESTINATION"/"$REPO_NAME".git
+  echo "   ↳ Exported: ${REPO_NAME_ENV}_REFERENCE_DESTINATION=$DESTINATION/${REPO_NAME}.git"
+
+  SIZE=$(du -sh "$DESTINATION"  | cut -f1 -d$'\t')
+  echo "--- :bk-status-passed: Restore of $repo Complete – Downloaded $SIZE"
+done
+
+# If specified, overwrite the clone flags to use reference repo
+# Will not work for multiple repos
+if [ -z ${REPOS[1]+x} ]; then
+  if [ "$GIT_CLONE_FLAGS" = true ]; then
+    export BUILDKITE_GIT_CLONE_FLAGS="-v --reference-if-able $DESTINATION"
+    echo "   ↳ Export of BUILDKITE_GIT_CLONE_FLAGS complete"
+  fi
+else
+  echo "   ↳ Unable to set BUILDKITE_GIT_CLONE_FLAGS since multiple repos were specified. No need for this flag if specifying multiple repos."
 fi
 
-echo "Downloading snapshot: $SNAPSHOT_KEY"
-
-DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
-
-# Then download it
-aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
-
-SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
-
-echo "Restore Complete – Downloaded $SIZE"
-
-cd $DESTINATION
-pwd
-ls
-cd -
-
-# Overwrite the clone flags to use the reference
-export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"
+echo "--- :bk-status-passed: Restore of All Reference Repos Complete"

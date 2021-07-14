@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -eo pipefail
+
+AUTO_CLONE="${BUILDKITE_PLUGIN_GIT_S3_CACHE_AUTO_CLONE:-"false"}"
+
+if [ $AUTO_CLONE = "true" ]; then
+  # create array of repos
+  IFS=' '
+  read -r -a REPOS <<< "$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPOS"
+  GITHUB_URL="$BUILDKITE_PLUGIN_GIT_S3_CACHE_GITHUB_URL"
+
+  echo "--- :github: Auto-Cloning Reference Repos"
+
+  for repo in "${REPOS[@]}"; do
+    #  fix up if repos have prefix paths
+    if [[ $repo =~ "/" ]]; then
+      REPO_NAME=$(echo "$repo" | cut -d "/" -f 2)
+    else
+      REPO_NAME=$repo
+    fi
+
+    # Getting reference repo destinations
+    REPO_NAME_REFERENCE_DESTINATION=$(echo "$REPO_NAME" | tr '[:lower:]' '[:upper:]' | tr '-' '_')_REFERENCE_DESTINATION
+    echo "   :git: Now cloning ${REPO_NAME}"
+    git clone -v --reference-if-able ${!REPO_NAME_REFERENCE_DESTINATION} ${GITHUB_URL}/${REPO_NAME}.git
+  done
+else
+  echo "   Auto Cloning Disabled"
+fi
