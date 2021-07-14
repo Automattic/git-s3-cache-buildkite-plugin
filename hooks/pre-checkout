@@ -1,5 +1,5 @@
 #!/bin/bash​
-# do not set `u`, it will break due to line
+# do not set `u`, it will break this script
 set -eo pipefail
 
 # create array of repos
