@@ -1,5 +1,13 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
+
+if [ -n "${IS_VM_HOST-}" ]; then
+	echo "VM Host variable set"
+	if [ $IS_VM_HOST ]; then 
+		echo "Is VM Host – exiting"
+		exit 0
+	fi
+fi
 
 REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
