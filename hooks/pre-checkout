@@ -15,7 +15,7 @@ BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
 echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
 
 # Fetch the most recent S3 backup key
-SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git/"))' | sort -r | head -n1)
+SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git.tar"))' | sort -r | head -n1)
 
 # Exit early if there's no available snapshot
 if [ -z "$SNAPSHOT_KEY" ]; then
@@ -23,21 +23,22 @@ if [ -z "$SNAPSHOT_KEY" ]; then
 	exit 0
 fi
 
-echo "Downloading snapshot: $SNAPSHOT_KEY"
-
-DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
+DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
+echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
 
 # Then download it
-aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
+rm -rf $DESTINATION # Delete before starting, just in case
+aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
 
 SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
 
-echo "Restore Complete – Downloaded $SIZE"
+echo "Downloaded $SIZE"
 
-cd $DESTINATION
-pwd
-ls
-cd -
+REFERENCE_REPO="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
+
+echo "Decompressing $DESTINATION to $REFERENCE_REPO"
+tar -xf $DESTINATION -C /tmp
+rm $DESTINATION
 
 # Overwrite the clone flags to use the reference
-export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"
+export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $REFERENCE_REPO"
