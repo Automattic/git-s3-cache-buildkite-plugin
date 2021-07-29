@@ -22,7 +22,7 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
 	URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH)
 
 	echo "Downloading snapshot $URL to $DESTINATION"
-	curl -so $DESTINATION "$GIT_MIRROR_SERVER_ROOT/$URL"
+	curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
 # Otherwise, use S3 directly
 else
 	# Fetch the most recent S3 backup key
