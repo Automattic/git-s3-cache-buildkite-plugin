@@ -1,35 +1,58 @@
 #!/bin/bash
-set -euo pipefail
+set -eo pipefail
+
+if [ -n "${IS_VM_HOST-}" ]; then
+	echo "VM Host variable set"
+	if [ $IS_VM_HOST ]; then 
+		echo "Is VM Host – exiting"
+		exit 0
+	fi
+fi
 
 REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
 
 echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
 
-# Fetch the most recent S3 backup key
-SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git/"))' | sort -r | head -n1)
+DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
-# Exit early if there's no available snapshot
-if [ -z "$SNAPSHOT_KEY" ]; then
-	echo "No snapshots found in $BUCKET"
-	exit 0
+# If we have an available Git Mirror Server, use it
+if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
+	echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
+	URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH)
+
+	echo "Downloading snapshot $URL to $DESTINATION"
+	curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
+# Otherwise, use S3 directly
+else
+	# Fetch the most recent S3 backup key
+	SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git.tar"))' | sort -r | head -n1)
+
+	# Exit early if there's no available snapshot
+	if [ -z "$SNAPSHOT_KEY" ]; then
+		echo "No snapshots found in $BUCKET"
+		exit 0
+	fi
+
+	echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
+
+	# Then download it
+	rm -rf $DESTINATION # Delete before starting, just in case
+	aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
 fi
-
-echo "Downloading snapshot: $SNAPSHOT_KEY"
-
-DESTINATION="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
-
-# Then download it
-aws s3 cp --recursive "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
 
 SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
 
-echo "Restore Complete – Downloaded $SIZE"
+echo "Downloaded $SIZE"
 
-cd $DESTINATION
-pwd
-ls
-cd -
+REFERENCE_REPO="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
+
+echo "Decompressing $DESTINATION to $REFERENCE_REPO"
+tar -xf $DESTINATION -C /tmp
+rm $DESTINATION
+
+ls /tmp
+ls $REFERENCE_REPO
 
 # Overwrite the clone flags to use the reference
-export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $DESTINATION"
+export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $REFERENCE_REPO"
