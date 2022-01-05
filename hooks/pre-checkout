@@ -3,7 +3,7 @@ set -eo pipefail
 
 if [ -n "${IS_VM_HOST-}" ]; then
 	echo "VM Host variable set"
-	if [ $IS_VM_HOST ]; then 
+	if [ $IS_VM_HOST ]; then
 		echo "Is VM Host – exiting"
 		exit 0
 	fi
@@ -19,7 +19,7 @@ DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 # If we have an available Git Mirror Server, use it
 if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
 	echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
-	URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH)
+	URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$)
 
 	echo "Downloading snapshot $URL to $DESTINATION"
 	curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
