@@ -3,7 +3,7 @@ set -eo pipefail
 
 if [ -n "${IS_VM_HOST-}" ]; then
 	echo "VM Host variable set"
-	if [ $IS_VM_HOST ]; then
+	if [ "$IS_VM_HOST" ]; then
 		echo "Is VM Host – exiting"
 		exit 0
 	fi
@@ -11,37 +11,106 @@ fi
 
 REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
+ERRORS_ARRAY=()
 
 echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
 
+env
+exit 1
+
 DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
+
+git_mirror_download () {
+  echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
+	if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$); then
+    echo "Downloading snapshot $URL to $DESTINATION"
+    curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
+    echo ":large_green_circle: Cache download successful!"
+    return 0
+  else
+    echo "  ↳ WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3."
+    ERRORS_ARRAY+=("- WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3.")
+		return 1
+  fi
+}
+
+s3_download () {
+  # Fetch the most recent S3 backup key
+	SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket "$BUCKET" --prefix "$REPO_PATH" --query 'Contents[].Key' | jq -sr 'sort[] | reverse[] | select(endswith(".git.tar"))' | head -n1 )
+
+  # Exit early if there's no available snapshot
+	if [ -z "$SNAPSHOT_KEY" ]; then
+		echo "  ↳ WARNING: No snapshots found in $BUCKET"
+    ERRORS_ARRAY+=("- WARNING: No snapshots found in $BUCKET")
+		return 1
+	fi
+
+ SNAPSHOT_KEY_CHECK=$(echo "$SNAPSHOT_KEY" | cut -d "/" -f 1-2)
+  if [ "$SNAPSHOT_KEY_CHECK" == "$REPO_PATH" ]; then
+		echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
+    # Then download it
+    rm -rf "$DESTINATION" # Delete before starting, just in case
+    aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
+    echo ":large_green_circle: S3 Download Succeeded"
+    return 0
+  else
+    echo "  ↳ WARNING: Nothing downloaded. $SNAPSHOT_KEY is not the same as $REPO_PATH (comparison used $SNAPSHOT_KEY_CHECK)"
+    ERRORS_ARRAY+=("- WARNING: Nothing downloaded. $SNAPSHOT_KEY is not the same as $REPO_PATH")
+    return 1
+  fi
+}
+
+annotate_error() {
+  ERRORS_ARRAY=("$@")
+  ERRORS=$(
+    for error in "${ERRORS_ARRAY[@]}"
+    do
+      echo "$error"
+    done
+  )
+
+  buildkite-agent annotate --style "warning" --context "warnings" --append \
+    "
+**STEP: $BUILDKITE_LABEL** had _WARNINGS_ while running on agent: $BUILDKITE_AGENT_NAME! <br>
+There were warnings in your build indicating the repo was expected to be cached, but wasn't found.<br>
+Please ensure you're repo is properly cached via the [bach-cache-buildkite-plugin](https://github.com/Automattic/bash-cache-buildkite-plugin).
+\`\`\`
+Errors:
+${ERRORS}
+\`\`\`
+"
+}
+
+###### BEGIN ######
 
 # If we have an available Git Mirror Server, use it
 if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
-	echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
-	URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$)
-
-	echo "Downloading snapshot $URL to $DESTINATION"
-	curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
+  echo "Git mirror found, attempting download."
+  if ! git_mirror_download; then
+    echo "~~~ :warning: Git Mirror download failed, attempting download from s3."
+    ERRORS_ARRAY+=("- Git Mirror download failed, attempting download from s3.")
+    if ! s3_download; then
+      echo "~~~ :warning: S3 Download failed as well. Cache must not exist yet."
+      ERRORS_ARRAY+=("- S3 Download failed as well. Cache must not exist yet.")
+      if [ -n "${ERRORS_ARRAY[*]}" ]; then
+        annotate_error "${ERRORS_ARRAY[@]}"
+      fi
+      exit 0
+    fi
+  fi
 # Otherwise, use S3 directly
 else
-	# Fetch the most recent S3 backup key
-	SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket $BUCKET --prefix $REPO_PATH --query 'Contents[].Key' | jq -r '.[] | select(endswith(".git.tar"))' | sort -r | head -n1)
-
-	# Exit early if there's no available snapshot
-	if [ -z "$SNAPSHOT_KEY" ]; then
-		echo "No snapshots found in $BUCKET"
-		exit 0
-	fi
-
-	echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
-
-	# Then download it
-	rm -rf $DESTINATION # Delete before starting, just in case
-	aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
+  if ! s3_download; then
+    echo "--- :warning: S3 Download failed. Cache must not exist yet."
+    ERRORS_ARRAY+=("- S3 Download failed. Cache must not exist yet.")
+    if [ -n "${ERRORS_ARRAY[*]}" ]; then
+      annotate_error "${ERRORS_ARRAY[@]}"
+    fi
+    exit 0
+  fi
 fi
 
-SIZE=$(du -sh $DESTINATION  | cut -f1 -d$'\t')
+SIZE=$(du -sh "$DESTINATION"  | cut -f1 -d$'\t')
 
 echo "Downloaded $SIZE"
 
@@ -49,10 +118,10 @@ REFERENCE_REPO="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
 
 echo "Decompressing $DESTINATION to $REFERENCE_REPO"
 tar -xf $DESTINATION -C /tmp
-rm $DESTINATION
+rm "$DESTINATION"
 
 ls /tmp
-ls $REFERENCE_REPO
+ls "$REFERENCE_REPO"
 
 # Overwrite the clone flags to use the reference
 export BUILDKITE_GIT_CLONE_FLAGS="-v --reference $REFERENCE_REPO"
