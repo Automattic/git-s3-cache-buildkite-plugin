@@ -15,9 +15,6 @@ ERRORS_ARRAY=()
 
 echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
 
-env
-exit 1
-
 DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
 git_mirror_download () {
@@ -70,10 +67,11 @@ annotate_error() {
   )
 
   buildkite-agent annotate --style "warning" --context "warnings" --append \
-    "
-**STEP: $BUILDKITE_LABEL** had _WARNINGS_ while running on agent: $BUILDKITE_AGENT_NAME! <br>
+"
+Step **$BUILDKITE_LABEL** had _WARNINGS_!
+Agent: **$BUILDKITE_AGENT_NAME** <br>
 There were warnings in your build indicating the repo was expected to be cached, but wasn't found.<br>
-Please ensure you're repo is properly cached via the [bach-cache-buildkite-plugin](https://github.com/Automattic/bash-cache-buildkite-plugin).
+Please ensure you're repo is properly cached via the [bash-cache-buildkite-plugin](https://github.com/Automattic/bash-cache-buildkite-plugin).
 \`\`\`
 Errors:
 ${ERRORS}
