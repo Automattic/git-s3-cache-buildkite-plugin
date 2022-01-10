@@ -2,11 +2,11 @@
 set -eo pipefail
 
 if [ -n "${IS_VM_HOST-}" ]; then
-	echo "VM Host variable set"
-	if [ "$IS_VM_HOST" ]; then
-		echo "Is VM Host – exiting"
-		exit 0
-	fi
+  echo "VM Host variable set"
+  if [ "$IS_VM_HOST" ]; then
+    echo "Is VM Host – exiting"
+    exit 0
+  fi
 fi
 
 REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
@@ -19,7 +19,7 @@ DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
 git_mirror_download () {
   echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
-	if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$); then
+  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     echo ":large_green_circle: Cache download successful!"
@@ -27,24 +27,24 @@ git_mirror_download () {
   else
     echo "  ↳ WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3."
     ERRORS_ARRAY+=("- WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3.")
-		return 1
+    return 1
   fi
 }
 
 s3_download () {
   # Fetch the most recent S3 backup key
-	SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket "$BUCKET" --prefix "$REPO_PATH" --query 'Contents[].Key' | jq -sr 'sort[] | reverse[] | select(endswith(".git.tar"))' | head -n1 )
+  SNAPSHOT_KEY=$(aws --output json s3api list-objects-v2 --bucket "$BUCKET" --prefix "$REPO_PATH" --query 'Contents[].Key' | jq -sr 'sort[] | reverse[] | select(endswith(".git.tar"))' | head -n1 )
 
   # Exit early if there's no available snapshot
-	if [ -z "$SNAPSHOT_KEY" ]; then
-		echo "  ↳ WARNING: No snapshots found in $BUCKET"
+  if [ -z "$SNAPSHOT_KEY" ]; then
+    echo "  ↳ WARNING: No snapshots found in $BUCKET"
     ERRORS_ARRAY+=("- WARNING: No snapshots found in $BUCKET")
-		return 1
-	fi
+    return 1
+  fi
 
  SNAPSHOT_KEY_CHECK=$(echo "$SNAPSHOT_KEY" | cut -d "/" -f 1-2)
   if [ "$SNAPSHOT_KEY_CHECK" == "$REPO_PATH" ]; then
-		echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
+    echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
     # Then download it
     rm -rf "$DESTINATION" # Delete before starting, just in case
     S3_XFER_STATUS=$(aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION")
