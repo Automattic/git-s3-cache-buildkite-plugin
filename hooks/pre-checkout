@@ -47,9 +47,14 @@ s3_download () {
 		echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
     # Then download it
     rm -rf "$DESTINATION" # Delete before starting, just in case
-    aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
-    echo ":large_green_circle: S3 Download Succeeded"
-    return 0
+    S3_XFER_STATUS=$(aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION")
+    if $S3_XFER_STATUS; then
+      echo ":large_green_circle: S3 Download Succeeded"
+      return 0
+    else
+      # s3 download failed, error message is below.
+      return 2
+    fi
   else
     echo "  ↳ WARNING: Nothing downloaded. $SNAPSHOT_KEY is not the same as $REPO_PATH (comparison used $SNAPSHOT_KEY_CHECK)"
     ERRORS_ARRAY+=("- WARNING: Nothing downloaded. $SNAPSHOT_KEY is not the same as $REPO_PATH")
@@ -88,8 +93,9 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
     echo "~~~ :warning: Git Mirror download failed, attempting download from s3."
     ERRORS_ARRAY+=("- Git Mirror download failed, attempting download from s3.")
     if ! s3_download; then
-      echo "~~~ :warning: S3 Download failed as well. Cache must not exist yet."
-      ERRORS_ARRAY+=("- S3 Download failed as well. Cache must not exist yet.")
+      echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
+      echo "  ↳ Full error: $S3_XFER_STATUS"
+      ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
       if [ -n "${ERRORS_ARRAY[*]}" ]; then
         annotate_error "${ERRORS_ARRAY[@]}"
       fi
@@ -99,8 +105,9 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
 # Otherwise, use S3 directly
 else
   if ! s3_download; then
-    echo "--- :warning: S3 Download failed. Cache must not exist yet."
-    ERRORS_ARRAY+=("- S3 Download failed. Cache must not exist yet.")
+    echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
+    echo "  ↳ Full error: $S3_XFER_STATUS"
+    ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
     if [ -n "${ERRORS_ARRAY[*]}" ]; then
       annotate_error "${ERRORS_ARRAY[@]}"
     fi
