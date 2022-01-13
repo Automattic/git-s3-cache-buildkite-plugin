@@ -103,9 +103,6 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
       echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
       echo "  ↳ Full error: $S3_XFER_STATUS"
       ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
-      if [ -n "${ERRORS_ARRAY[*]}" ]; then
-        annotate_error "${ERRORS_ARRAY[@]}"
-      fi
       exit 0
     fi
   fi
@@ -115,11 +112,11 @@ else
     echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
     echo "  ↳ Full error: $S3_XFER_STATUS"
     ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
-    if [ -n "${ERRORS_ARRAY[*]}" ]; then
-      annotate_error "${ERRORS_ARRAY[@]}"
-    fi
-    exit 0
   fi
+fi
+
+if [ -n "${ERRORS_ARRAY[*]}" ]; then
+  annotate_error "${ERRORS_ARRAY[@]}"
 fi
 
 SIZE=$(du -sh "$DESTINATION"  | cut -f1 -d$'\t')
