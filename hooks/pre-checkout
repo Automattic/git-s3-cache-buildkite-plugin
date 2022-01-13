@@ -22,8 +22,14 @@ git_mirror_download () {
   if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
-    echo ":large_green_circle: Cache download successful!"
-    return 0
+    MIRROR_XFER_STATUS=$?
+    if [ $MIRROR_XFER_STATUS == 0 ]; then
+      echo ":large_green_circle: Cache download successful!"
+      return 0
+    else
+      # we failed, exit
+      return 2
+    fi
   else
     echo "  ↳ WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3."
     ERRORS_ARRAY+=("- WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3.")
@@ -47,8 +53,9 @@ s3_download () {
     echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
     # Then download it
     rm -rf "$DESTINATION" # Delete before starting, just in case
-    S3_XFER_STATUS=$(aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION")
-    if $S3_XFER_STATUS; then
+    aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
+    S3_XFER_STATUS=$?
+    if [ $S3_XFER_STATUS == 0 ]; then
       echo ":large_green_circle: S3 Download Succeeded"
       return 0
     else
@@ -122,7 +129,7 @@ echo "Downloaded $SIZE"
 REFERENCE_REPO="/tmp/$BUILDKITE_PIPELINE_SLUG.git"
 
 echo "Decompressing $DESTINATION to $REFERENCE_REPO"
-tar -xf $DESTINATION -C /tmp
+tar -xf "$DESTINATION" -C /tmp
 rm "$DESTINATION"
 
 ls /tmp
