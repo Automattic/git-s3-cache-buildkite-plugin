@@ -24,7 +24,7 @@ git_mirror_download () {
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     MIRROR_XFER_STATUS=$?
     if [ $MIRROR_XFER_STATUS == 0 ]; then
-      echo ":large_green_circle: Cache download successful!"
+      echo "~~~ :large_green_circle: Cache download successful!"
       return 0
     else
       # we failed, exit
@@ -53,10 +53,10 @@ s3_download () {
     echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
     # Then download it
     rm -rf "$DESTINATION" # Delete before starting, just in case
-    aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION"
+    aws s3 cp "s3://$BUCKET/$SNAPSHOT_KEY" "$DESTINATION" --no-progress
     S3_XFER_STATUS=$?
     if [ $S3_XFER_STATUS == 0 ]; then
-      echo ":large_green_circle: S3 Download Succeeded"
+      echo "~~~ :large_green_circle: S3 Download Succeeded"
       return 0
     else
       # s3 download failed, error message is below.
@@ -95,9 +95,9 @@ ${ERRORS}
 
 # If we have an available Git Mirror Server, use it
 if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
-  echo "Git mirror found, attempting download."
+  echo "~~~ Git mirror found, attempting download."
   if ! git_mirror_download; then
-    echo "~~~ :warning: Git Mirror download failed, attempting download from s3."
+    echo "~~~ :warning: Git Mirror download failed, attempting download from s3...."
     ERRORS_ARRAY+=("- Git Mirror download failed, attempting download from s3.")
     if ! s3_download; then
       echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
