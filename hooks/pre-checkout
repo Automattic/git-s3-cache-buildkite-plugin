@@ -9,7 +9,9 @@ if [ -n "${IS_VM_HOST-}" ]; then
   fi
 fi
 
-REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
+# Extract the plugin's configuration properties
+# For `repo:`, make sure we have it end with a `/` (removing trailing slash if present, then re-adding one explicitly)
+REPO_PATH="${BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO%/}"/
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
 ERRORS_ARRAY=()
 
@@ -48,8 +50,10 @@ s3_download () {
     return 1
   fi
 
+ # Extract the first 2 components of the key, then compare it with the provided `REPO_PATH` (which ends with a `/`)
+ # Note that the `SNAPSHOT_KEY` can follow either the `<bucket>/<project>/<date>.git.tar` or `<bucket>/<project>/<date>/<project.git.tar` structure
  SNAPSHOT_KEY_CHECK=$(echo "$SNAPSHOT_KEY" | cut -d "/" -f 1-2)
-  if [ "$SNAPSHOT_KEY_CHECK" == "$REPO_PATH" ]; then
+  if [ "${SNAPSHOT_KEY_CHECK}/" == "${REPO_PATH}" ]; then
     echo "Downloading snapshot: $SNAPSHOT_KEY to $DESTINATION"
     # Then download it
     rm -rf "$DESTINATION" # Delete before starting, just in case
