@@ -34,7 +34,6 @@ git_mirror_download () {
     fi
   else
     echo "  ↳ WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3."
-    ERRORS_ARRAY+=("- WARNING: No snapshots found in $GIT_MIRROR_SERVER_ROOT. Will attempt s3.")
     return 1
   fi
 }
@@ -108,7 +107,6 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
   echo "~~~ Git mirror found, attempting download."
   if ! git_mirror_download; then
     echo "~~~ :warning: Git Mirror download failed, attempting download from s3...."
-    ERRORS_ARRAY+=("- Git Mirror download failed, attempting download from s3.")
     if ! s3_download; then
       echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
       echo "  ↳ Full error: $S3_XFER_STATUS"
