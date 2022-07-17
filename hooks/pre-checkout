@@ -13,7 +13,7 @@ REPO_PATH="$BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO"
 BUCKET="$BUILDKITE_PLUGIN_GIT_S3_CACHE_BUCKET"
 ERRORS_ARRAY=()
 
-echo "--- 📦  Restoring cache for $REPO_PATH from $BUCKET"
+echo "--- 📦 Restoring cache for $REPO_PATH from $BUCKET"
 
 DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
@@ -108,7 +108,7 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
     if ! s3_download; then
       echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
       echo "  ↳ Full error: $S3_XFER_STATUS"
-      ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
+      ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet. Full error: $S3_XFER_STATUS ")
       annotate
       exit 0
     fi
@@ -118,7 +118,7 @@ else
   if ! s3_download; then
     echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
     echo "  ↳ Full error: $S3_XFER_STATUS"
-    ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet.  Full error: $S3_XFER_STATUS ")
+    ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet. Full error: $S3_XFER_STATUS ")
     annotate
     exit 0
   fi
