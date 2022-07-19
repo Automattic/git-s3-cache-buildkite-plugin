@@ -19,7 +19,7 @@ DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
 git_mirror_download () {
   echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
-  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep $REPO_PATH$); then
+  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep "$REPO_PATH"$); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     MIRROR_XFER_STATUS=$?
