@@ -47,7 +47,7 @@ The S3 bucket containing your mirrors.
 
 ### `repo` (Required, string)
 
-The S3 path to the repo. **Must include a trailing slash**.
+The S3 path to the repo. For example `my-org/my-project`.
 
 ## Developing
 
