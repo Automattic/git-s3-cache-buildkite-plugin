@@ -21,7 +21,18 @@ DESTINATION=/tmp/$BUILDKITE_PIPELINE_SLUG.git.tar
 
 git_mirror_download () {
   echo "Using Git Mirror Server at $GIT_MIRROR_SERVER_ROOT"
-  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep "$REPO_PATH"$); then
+  # The manifest file has each cached repo on a line, in the org/name/id
+  # format.
+  #
+  # E.g.:
+  #
+  #   automattic/pocket-casts-ios/2022-07-16.git.tar
+  #   automattic/tumblr-ios/2022-07-16.git.tar
+  #   ...
+  #
+  # To find the path for the current repo, we `grep` for its name at the start
+  # of the line, using `^`.
+  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep ^"$REPO_PATH"); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     MIRROR_XFER_STATUS=$?
