@@ -14,7 +14,7 @@ steps:
     plugins:
       - automattic/git-s3-cache#v1.0.0:
           bucket: "my-s3-bucket"
-          repo: "path-to-repo-in-s3/" # note the trailing slash – it must be present
+          repo: "path-to-repo-in-s3/"
 ```
 
 ## Configuration
@@ -28,6 +28,8 @@ my-bucket/
 │   ├── 2020-01-03-my-project.git
 │   ├── 2020-01-05-my-project.git
 ```
+
+Or:
 
 ```
 my-bucket/
