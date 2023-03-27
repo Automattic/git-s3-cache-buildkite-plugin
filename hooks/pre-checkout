@@ -98,7 +98,7 @@ annotate_error() {
 Step **$BUILDKITE_LABEL** had _WARNINGS_!
 Agent: **$BUILDKITE_AGENT_NAME** <br>
 There were warnings in your build indicating the repo was expected to be cached, but wasn't found.<br>
-Please ensure you're repo is properly cached via the [bash-cache-buildkite-plugin](https://github.com/Automattic/bash-cache-buildkite-plugin).
+Please ensure your repo is properly cached via the [a8c-ci-toolkit-buildkite-plugin](https://github.com/Automattic/a8c-ci-toolkit-buildkite-plugin)'s \`cache_repo\` command.
 \`\`\`
 Errors:
 ${ERRORS}
