@@ -32,7 +32,7 @@ git_mirror_download () {
   #
   # To find the path for the current repo, we `grep` for its name at the start
   # of the line, using `^`.
-  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep ^"$REPO_PATH"); then
+  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep ^"$REPO_PATH" | head -n1); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     MIRROR_XFER_STATUS=$?
