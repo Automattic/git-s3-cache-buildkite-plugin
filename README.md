@@ -36,7 +36,7 @@ my-bucket/
 ├── my-project/
 │   ├── 2000-01-01
 │       ├── my-project.git
-│   └── 2001-01-01
+│   └── 2001-01-02
 │       ├── my-project.git
 
 ```

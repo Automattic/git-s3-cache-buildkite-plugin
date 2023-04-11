@@ -31,8 +31,10 @@ git_mirror_download () {
   #   ...
   #
   # To find the path for the current repo, we `grep` for its name at the start
-  # of the line, using `^`.
-  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep ^"$REPO_PATH"); then
+  # of the line, using `^`. Similar to looking up the S3 bucket, the entries in
+  # the manifest are reverse sorted (as they should contain a date string after
+  # the `REPO_PATH`) so that the most recent cache gets downloaded.
+  if URL=$(curl "$GIT_MIRROR_SERVER_ROOT/manifest" | grep ^"$REPO_PATH" | sort -r | head -n1); then
     echo "Downloading snapshot $URL to $DESTINATION"
     curl -so "$DESTINATION" "$GIT_MIRROR_SERVER_ROOT/$URL"
     MIRROR_XFER_STATUS=$?
