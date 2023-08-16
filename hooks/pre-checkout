@@ -136,10 +136,20 @@ if [ -n "${GIT_MIRROR_SERVER_ROOT:-}" ]; then
   fi
 # Otherwise, use S3 directly
 else
+  echo "~~~ No Git mirror found, attempting download from S3..."
   if ! s3_download; then
-    echo "--- :warning: S3 Download failed. This probably means the cache may not exist yet."
-    echo "  ↳ Full error: $S3_XFER_STATUS"
-    ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet. Full error: $S3_XFER_STATUS ")
+    MESSAGE='S3 Download failed. This probably means the cache may not exist yet.'
+    echo "--- :warning: $MESSAGE"
+
+    if [ -z "$S3_XFER_STATUS" ]; then
+      ERROR="Failed before calling the AWS CLI."
+    else
+      ERROR="Full error: $S3_XFER_STATUS."
+    fi
+
+    echo "  ↳ $ERROR"
+
+    ERRORS_ARRAY+=("- S3 Download failed as well. Cache may not exist yet. $ERROR")
     annotate
     exit 0
   fi
