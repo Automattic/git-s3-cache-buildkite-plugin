@@ -1,4 +1,7 @@
 #!/bin/bash
+
+# Hooks are sourced, so we need to explicitly set flag.
+# We cannot use the shebang syntax.
 set -eo pipefail
 
 if [ -n "${IS_VM_HOST-}" ]; then
