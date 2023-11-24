@@ -9,6 +9,13 @@ if [ -n "${IS_VM_HOST-}" ]; then
   fi
 fi
 
+if [[ $(arch) == "arm64" ]]; then
+  MSG="Skipping \`git-s3-cache\`'s \`pre-checkout\` hook because we're running on Apple Silicon Stack"
+  echo "$MSG"
+  buildkite-agent annotate --style "warning" --context "warnings" --append "$MSG"
+  exit 0
+fi
+
 # Extract the plugin's configuration properties
 # For `repo:`, make sure we have it end with a `/` (removing trailing slash if present, then re-adding one explicitly)
 REPO_PATH="${BUILDKITE_PLUGIN_GIT_S3_CACHE_REPO%/}"/
