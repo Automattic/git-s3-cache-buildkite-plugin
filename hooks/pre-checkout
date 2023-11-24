@@ -12,7 +12,7 @@ fi
 if [[ $(arch) == "arm64" ]]; then
   MSG="Skipping \`git-s3-cache\`'s \`pre-checkout\` hook because we're running on Apple Silicon Stack"
   echo "$MSG"
-  buildkite-agent annotate --style "warning" --context "warnings" --append "$MSG"
+  buildkite-agent annotate --style "warning" --context "warnings" --append "$BUILDKITE_LABEL: $MSG<br>"
   exit 0
 fi
 
